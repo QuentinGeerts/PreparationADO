@@ -232,6 +232,7 @@ using (SqlConnection connection = new SqlConnection(connectionString))
 }
 
 // Procédures stockées
+Console.WriteLine($"\n9. Procédures stockées");
 using (SqlConnection connection = new SqlConnection(connectionString))
 {
     connection.Open();
@@ -241,19 +242,25 @@ using (SqlConnection connection = new SqlConnection(connectionString))
         command.CommandText = "AddUser";
         command.CommandType = CommandType.StoredProcedure;
 
+        // Valeurs à insérer (variables, pour la clarté et la réutilisation)
+        string userName = "NomUtilisateur";
+        string email = "mon-email@gmail.com";
+        string password = "Test1234=";
+        string lastName = "NomDeFamille";
+        string firstName = "Prénom";
+
         // Paramètres d'entrée
-        command.Parameters.AddWithValue("@UserName", "NomUtilisateur");
-        command.Parameters.AddWithValue("@Email", "mon-email@gmail.com");
-        command.Parameters.AddWithValue("@Password", "Test1234=");
-        command.Parameters.AddWithValue("@LastName", "NomDeFamille");
-        command.Parameters.AddWithValue("@FirstName", "Prénom");
+        command.Parameters.AddWithValue("@UserName", userName);
+        command.Parameters.AddWithValue("@Email", email);
+        command.Parameters.AddWithValue("@Password", password);
+        command.Parameters.AddWithValue("@LastName", lastName);
+        command.Parameters.AddWithValue("@FirstName", firstName);
 
         // Paramètres de sortie
         var userId = new SqlParameter("@UserId", SqlDbType.Int)
         {
             Direction = ParameterDirection.Output
         };
-
         var errorMessage = new SqlParameter("@ErrorMessage", SqlDbType.NVarChar, 4000)
         {
             Direction = ParameterDirection.Output
@@ -262,20 +269,64 @@ using (SqlConnection connection = new SqlConnection(connectionString))
         command.Parameters.Add(userId);
         command.Parameters.Add(errorMessage);
 
-        command.ExecuteScalar();
-
-        object userIdObject = userId.Value;
-        string message = errorMessage.Value as string;
-
-        if (!string.IsNullOrEmpty(message))
+        try
         {
-            Console.WriteLine($"Erreur lors de l'insertion: {message}");
+            // Exécute la procédure (ExecuteNonQuery ici car on utilise des paramètres OUT)
+            command.ExecuteNonQuery();
+
+            object userIdObject = userId.Value;
+            string? message = errorMessage.Value as string;
+
+            if (!string.IsNullOrEmpty(message))
+            {
+                Console.WriteLine($"Erreur lors de l'insertion: {message}");
+            }
+            else
+            {
+                int id = (userIdObject != DBNull.Value) ? Convert.ToInt32(userIdObject) : -1;
+                Console.WriteLine($"Utilisateur créé: {id}");
+            }
+        }
+        catch (SqlException ex)
+        {
+            // Gère les erreurs SQL renvoyées par le serveur ou la procédure
+            Console.WriteLine("Erreur SQL : " + ex.Message);
+        }
+        catch (Exception ex)
+        {
+            // Gère toute autre erreur inattendue
+            Console.WriteLine("Erreur inattendue : " + ex.Message);
+        }
+    }
+}
+
+// Gestion des transactions
+Console.WriteLine($"\n10. Gestion des transactions");
+
+int modifiedRows = 0;
+
+using (SqlConnection connection = new SqlConnection(connectionString))
+{
+    connection.Open();
+
+    using (SqlTransaction transaction = connection.BeginTransaction())
+    {
+        using (SqlCommand command = connection.CreateCommand())
+        {
+            command.CommandText = "DELETE FROM User WHERE Id = 3";
+            command.Transaction = transaction;
+
+            modifiedRows = command.ExecuteNonQuery();
+            Console.WriteLine($"ModifiedRows: {modifiedRows}");
+        }
+
+        if (modifiedRows > 0)
+        {
+            transaction.Rollback();
         }
         else
         {
-            int id = (userIdObject != DBNull.Value) ? Convert.ToInt32(userIdObject) : -1;
-            Console.WriteLine($"Utilisateur créé: {id}");
+            transaction.Commit();
         }
-
     }
 }
