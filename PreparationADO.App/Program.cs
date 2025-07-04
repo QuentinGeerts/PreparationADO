@@ -26,6 +26,7 @@ using (SqlConnection connection = new SqlConnection(connectionString))
 /*
  *  MODE CONNECTÉ
  *  La connexion reste ouverte le temps que la requête soit exécutée et retourne le résultat
+ *  Utile pour parcourir de gros volumes de données / données à jour
  */
 
 // Exécute une commande SQL sur la base de données
@@ -60,19 +61,19 @@ using (SqlConnection connection = new SqlConnection(connectionString))
 
     using (SqlCommand command = connection.CreateCommand())
     {
-        command.CommandText = "SELECT [Id], [FirstName], [LastName] FROM [dbo].[User]";
+        command.CommandText = "SELECT [Id], [UserName] FROM [dbo].[User]";
 
+        // La connexion reste active tant que nous utilisons SqlDataReader
         using (SqlDataReader reader = command.ExecuteReader())
         {
             // Permet de lire les enregistrements un par un
             while (reader.Read())
             {
                 int id = (int)reader["Id"];
-                string firstName = (string)reader["FirstName"];
-                string lastName = (string)reader["LastName"];
+                string userName = (string)reader["UserName"];
 
-                // Affiche les valeurs des colonnes Id, FirstName et LastName
-                Console.WriteLine($"Id: {id}, FirstName: {firstName}, LastName: {lastName}");
+                // Affiche les valeurs des colonnes Id, UserName
+                Console.WriteLine($"Id: {id}, UserName: {userName}");
             }
         }
     }
@@ -126,29 +127,36 @@ using (SqlConnection connection = new SqlConnection(connectionString))
 
 /*
  *  MODE DÉCONNECTÉ
+ *  La connexion s'ouvre le temps de charger les données
+ *  Se ferme automatiquement une fois la réception terminée
+ *  Utilisation des données en local
+ *  Utile pour travailler hors connexion ou sur une "copie"
  */
 
 // Utilise SqlDataAdapter pour remplir un DataSet avec les données de la base de données
 Console.WriteLine($"\n6. Utilise SqlDataAdapter pour remplir un DataSet avec les données de la base de données\n");
+
+DataSet dataSet = new DataSet();
+
 using (SqlConnection connection = new SqlConnection(connectionString))
 {
 
     using (SqlCommand command = connection.CreateCommand())
     {
-        command.CommandText = "SELECT [Id], [FirstName] FROM [dbo].[User]";
+        command.CommandText = "SELECT [Id], [UserName] FROM [dbo].[User]";
 
         SqlDataAdapter adapter = new SqlDataAdapter(command);
-        DataSet dataSet = new DataSet();
 
-        adapter.Fill(dataSet);
+        adapter.Fill(dataSet); // Remplit le DataSet → connexion active 
+    } // Fermeture de la connexion automatiquement
+}
 
-        if (dataSet.Tables.Count > 0)
-        {
-            foreach (DataRow row in dataSet.Tables[0].Rows)
-            {
-                Console.WriteLine($"Id: {row["Id"]}, Prenom: {row["FirstName"]}");
-            }
-        }
+// Parcourt du DataSet hors connexion
+if (dataSet.Tables.Count > 0)
+{
+    foreach (DataRow row in dataSet.Tables[0].Rows)
+    {
+        Console.WriteLine($"Id: {row["Id"]}, Prenom: {row["UserName"]}");
     }
 }
 
@@ -162,7 +170,7 @@ using (SqlConnection connection = new SqlConnection(connectionString))
     using (SqlCommand command = connection.CreateCommand())
     {
         // Ajoute un paramètre à la commande SQL
-        command.CommandText = "SELECT [Id], [FirstName], [LastName] FROM [dbo].[User] WHERE Id = @idParam";
+        command.CommandText = "SELECT [Id], [UserName] FROM [dbo].[User] WHERE Id = @idParam";
 
         // Utilise un paramètre pour éviter les injections SQL
         command.Parameters.AddWithValue("@idParam", idParam);
@@ -173,14 +181,45 @@ using (SqlConnection connection = new SqlConnection(connectionString))
             while (reader.Read())
             {
                 int id = (int)reader["Id"];
-                string firstName = (string)reader["FirstName"];
-                string lastName = (string)reader["LastName"];
+                string userName = (string)reader["UserName"];
 
                 // Affiche les valeurs des colonnes Id et FirstName
-                Console.WriteLine($"Id: {id}, FirstName: {firstName}, LastName: {lastName}");
+                Console.WriteLine($"Id: {id}, UserName: {userName}");
             }
         }
     }
 
     connection.Close();
+}
+
+// Valeur "NULL" vs DBNull
+Console.WriteLine($"\n8. Valeur \"NULL\" vs DBNull");
+
+using (SqlConnection connection = new SqlConnection(connectionString))
+{
+    connection.Open();
+
+    using (SqlCommand command = connection.CreateCommand())
+    {
+        command.CommandText = "SELECT [Id], [FirstName] FROM [dbo].[User]";
+
+        using (SqlDataReader reader = command.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                int id = (int)reader["Id"];
+                string? firstName = (reader["FirstName"] is DBNull) ? null : (string) reader["FirstName"];
+
+                if (firstName is null)
+                {
+                    Console.WriteLine($"L'utilisateur avec l'id {id} n'a pas de prénom.");
+                }
+                else
+                {
+                    Console.WriteLine($"L'utilisateur avec l'id {id} s'appelle {firstName}");
+                }
+
+            }
+        }
+    }
 }

@@ -19,7 +19,7 @@ SET IDENTITY_INSERT [dbo].[User] ON;
 INSERT INTO [dbo].[User] (Id, UserName, Email, PasswordHash, LastName, FirstName)
 VALUES
 (1, 'admin', 'admin@admin.be', HASHBYTES('SHA2_256', 'Test1234='), 'Admin', 'Admin'),
-(2, 'Oyumiro', 'quentin.geerts@bstorm.be', HASHBYTES('SHA2_256', 'Test1234='), 'Geerts', 'Quentin');
+(2, 'Oyumiro', 'quentin.geerts@bstorm.be', HASHBYTES('SHA2_256', 'Test1234='), 'Geerts', NULL);
 
 SET IDENTITY_INSERT [dbo].[User] OFF;
 
