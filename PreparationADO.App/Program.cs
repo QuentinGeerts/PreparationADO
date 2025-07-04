@@ -195,6 +195,12 @@ using (SqlConnection connection = new SqlConnection(connectionString))
 // Valeur "NULL" vs DBNull
 Console.WriteLine($"\n8. Valeur \"NULL\" vs DBNull");
 
+/*
+ * C#       : null
+ * SQL      : NULL
+ * ADO.NET  : DBNull
+ */
+
 using (SqlConnection connection = new SqlConnection(connectionString))
 {
     connection.Open();
@@ -208,9 +214,10 @@ using (SqlConnection connection = new SqlConnection(connectionString))
             while (reader.Read())
             {
                 int id = (int)reader["Id"];
-                string? firstName = (reader["FirstName"] is DBNull) ? null : (string) reader["FirstName"];
+                // <!> null != DBNull
+                string? firstName = (reader["FirstName"] is DBNull) ? null : (string)reader["FirstName"];
 
-                if (firstName is null)
+                if (firstName is null || reader.IsDBNull("FirstName"))
                 {
                     Console.WriteLine($"L'utilisateur avec l'id {id} n'a pas de prénom.");
                 }
@@ -221,5 +228,54 @@ using (SqlConnection connection = new SqlConnection(connectionString))
 
             }
         }
+    }
+}
+
+// Procédures stockées
+using (SqlConnection connection = new SqlConnection(connectionString))
+{
+    connection.Open();
+
+    using (SqlCommand command = connection.CreateCommand())
+    {
+        command.CommandText = "AddUser";
+        command.CommandType = CommandType.StoredProcedure;
+
+        // Paramètres d'entrée
+        command.Parameters.AddWithValue("@UserName", "NomUtilisateur");
+        command.Parameters.AddWithValue("@Email", "mon-email@gmail.com");
+        command.Parameters.AddWithValue("@Password", "Test1234=");
+        command.Parameters.AddWithValue("@LastName", "NomDeFamille");
+        command.Parameters.AddWithValue("@FirstName", "Prénom");
+
+        // Paramètres de sortie
+        var userId = new SqlParameter("@UserId", SqlDbType.Int)
+        {
+            Direction = ParameterDirection.Output
+        };
+
+        var errorMessage = new SqlParameter("@ErrorMessage", SqlDbType.NVarChar, 4000)
+        {
+            Direction = ParameterDirection.Output
+        };
+
+        command.Parameters.Add(userId);
+        command.Parameters.Add(errorMessage);
+
+        command.ExecuteScalar();
+
+        object userIdObject = userId.Value;
+        string message = errorMessage.Value as string;
+
+        if (!string.IsNullOrEmpty(message))
+        {
+            Console.WriteLine($"Erreur lors de l'insertion: {message}");
+        }
+        else
+        {
+            int id = (userIdObject != DBNull.Value) ? Convert.ToInt32(userIdObject) : -1;
+            Console.WriteLine($"Utilisateur créé: {id}");
+        }
+
     }
 }
